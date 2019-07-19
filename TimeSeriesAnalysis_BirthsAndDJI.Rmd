@@ -1,0 +1,212 @@
+
+---
+title: Births and Stock Prices
+output:
+  html_document: default
+  html_notebook: default
+  pdf_document: default
+  word_document: default
+---
+
+
+
+
+```{r install_libraries, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+#install.packages("sqldf")
+#install.packages("dummies")
+#install.packages("forecast")
+#install.packages("orderedLasso")
+#install.packages("glmnet")
+#install.packages("h2o")
+#install.packages("lubridate")
+#install.packages("glmnetUtils")
+#install.packages("addendum")
+#install.packages("testthat")
+#devtools::use_testthat
+
+rm(list=ls())
+
+library(sqldf) #for running sql on data frames
+library(dummies) #for creating one-hot encoding
+library(forecast) #for the Holt-Winters forecast filter
+#library(orderedLasso)
+library(glmnet) #for running regularized GLM
+library(lubridate)
+#library(glmnetUtils)
+#library(Quandl)
+library(quantmod) #extract DJI data
+library(imputeTS) #for interpolation of time series
+#library(h2o)
+library(knitr) #for reproducible research, i.e., Markdown
+library(testthat)
+#?testthat
+
+```
+
+Select global settings for this analysis.  These include choosing the dependent variable, and offset variable, if any, and the time increment variable (i.e., years, or month/year).
+
+
+```{r set_globals, message=FALSE, warning=FALSE}
+##########################
+##Input Global Variables##
+##########################
+
+##########################
+#Input the column name of the dependent variable to predict.
+dependent.variable <- "DJI"
+##########################
+
+##########################
+#Set the maximum lag for adjusting the variables in the data.
+#each variable will get a new column for each lag, up to the maximum set here.
+maxlag <- 70
+##########################
+
+##########################
+#Input the column name that has the time increments in it, such as years, or year/months.
+time.increment.variable <- "Date"
+##########################
+
+##########################
+#Input the end date for the training set
+train.end.date <- 2017-12-29
+##########################
+
+##########################
+#Select whether to include plots with the arima, pre-whitening step
+include.arima.plots <- FALSE
+##########################
+
+##########################
+#Select whether to include quartile to quartile (QQ) plots
+include.QQ.plots <- FALSE
+##########################
+
+##### dependent variable #####
+
+# Import stock data from Yahoo
+start = as.Date("1960-12-30")
+end = as.Date("2018-12-31")
+getSymbols("DJI", src="yahoo", start=start, end=end)
+DJI.xts <- as.xts(DJI)
+DJI.interp <- na.interpolation(DJI.xts)
+DJI.yearly <- to.yearly(DJI.interp)
+#DJI.quarterly <- to.quarterly(DJI.interp)
+DJI.close <- data.frame(DJI.yearly$DJI.interp.Close)
+DJI.dates <- rownames(DJI.close)
+DJI.close <- data.frame(DJI.dates, DJI.close)
+colnames(DJI.close) <- c(time.increment.variable, "DJI")
+nrows.DJI.close <- length(DJI.close[,1])
+##### predictor variable #####
+
+# births
+raw.birth.data <- read.csv("US_births_1005423.csv")
+nrows.births  <- length(raw.birth.data[,1])
+ncols <- length(raw.birth.data[1,])
+
+#maximum lag = 70
+#number of rows before lagging = 83
+
+#number of rows after lagging = 13
+#number of columns after lagging = 142
+
+#83-70
+
+nlags <- nrows.births - nrows.DJI.close
+nrows.lagged.births <- nrows.births - nlags
+
+#function to add time lags to the predictor variables in a new matrix
+time_lag_matrix2 <- function (x, maxlag) {
+    p = ncol(x)
+    N = nrow(x) - maxlag - 1
+#    x_new_num_col = maxlag * p + p #as a check
+    x_new = NULL
+    for (j in 1:p) {
+      for (i in 1:(maxlag + 1)) {
+        x_temp = x[(i):(N + i), j]
+        x_new = cbind(x_new,as.vector(x_temp))
+      }
+    }
+    return(x_new)
+}
+
+year <- raw.birth.data$Year
+births <- raw.birth.data$Births
+
+birth.data.lagged <- time_lag_matrix2(x=raw.birth.data, maxlag=nlags)
+str(birth.data.lagged)
+str(DJI.close)
+write.csv(birth.data.lagged, "birth_data_lagged.csv")
+
+years.lagged <- birth.data.lagged[,1:length(birth.data.lagged[1,])/2]
+#year.names <- years.lagged[,1]
+
+begin.birthdata <- length(birth.data.lagged[1,])/2+1
+end.birthdata <- length(birth.data.lagged[1,])
+births.lagged <- birth.data.lagged[,begin.birthdata:end.birthdata]
+
+write.csv(years.lagged, "years.lagged.csv")
+
+Y <- cbind(births.lagged, DJI.close$DJI)
+#str(Y)
+#Y.rev <- apply(Y, 2, rev)
+
+#split data into training and test sets: two thirds, and one third respectively
+T1=floor(nrow(Y)/4)
+T2=floor(3*nrow(Y)/4)
+
+train.data = Y[1:T2,]
+forecast.data = Y[(T2+1):(T1+T2),]
+
+y.train <- train.data[,length(Y[1,])]
+x.train <- train.data[,1:(length(Y[1,])-1)]
+
+cvfitlm <- cv.glmnet(x=x.train, y=y.train, family="gaussian", alpha=1)
+cvfitlm.coef.lambda.1se <- coef(cvfitlm, s = "lambda.1se")
+#str(cvfitlm.coef.lambda.1se)
+
+y.forecast <- forecast.data[,length(Y[1,])]
+x.forecast <- forecast.data[,1:(length(Y[1,])-1)]
+
+#### build forecast set the maximizes the amount of data that can be used
+
+max.forecast.length <- max(cvfitlm.coef.lambda.1se@i)
+#raw.birth.data$Year[30]
+end.x.forecast <- nrows.births - max.forecast.length
+
+###to do next: create a loop to cycle through each lag...
+raw.birth.data$Births[max.forecast.length:end.x.forecast]
+
+```
+
+#Forecast
+
+```{r}
+end.year <- year(end)
+pop.ages <- end.year - nrows.lagged.births - year[cvfitlm.coef.lambda.1se@i]
+coef.table <- cbind(c("y-intercept", paste("Age: ", pop.ages, sep="")), round(cvfitlm.coef.lambda.1se@x, 5))
+colnames(coef.table) <- c("Variable Name", "Coefficient")
+kable(coef.table)
+
+```
+
+##Forecast Graph
+
+```{r}
+
+predictions <- predict(cvfitlm, newx=x.train, type="response", s=cvfitlm$lambda.1se)
+predict.ahead <- predict(cvfitlm, newx=x.forecast, type="response", s=cvfitlm$lambda.1se)
+
+pdf("glmnet_forecast.pdf")
+plot(c(y.train, predict.ahead), type='p', main = "Forecast", ylab="Values", xlab="Time")
+lines(y.train, col = "black", lty = 1, lwd = 2)
+lines(c(predictions,predict.ahead), col = "green", lty = 1, lwd = 2)
+legend("topleft", c("Forecast", "Actual"), col = c("green", "black"), text.col = "black", lty = c(1, 1, 1, 1, 2), lwd = c(2, 2, 2, 1, 2), merge = TRUE, bg = 'gray90', cex = .75)
+dev.off()
+
+plot(c(y.train, predict.ahead), type='p', main = "Forecast", ylab="Values", xlab="Time")
+lines(y.train, col = "black", lty = 1, lwd = 2)
+lines(c(predictions,predict.ahead), col = "green", lty = 1, lwd = 2)
+legend("topleft", c("Forecast", "Actual"), col = c("green", "black"), text.col = "black", lty = c(1, 1, 1, 1, 2), lwd = c(2, 2, 2, 1, 2), merge = TRUE, bg = 'gray90', cex = .75)
+
+```
