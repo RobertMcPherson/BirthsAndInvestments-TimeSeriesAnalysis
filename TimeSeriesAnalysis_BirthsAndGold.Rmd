@@ -48,7 +48,7 @@ Select global settings for this analysis.  These include choosing the dependent 
 
 
 ```{r set_globals, message=FALSE, warning=FALSE}
-
+#getwd()
 ##########################
 ##Input Global Variables##
 ##########################
