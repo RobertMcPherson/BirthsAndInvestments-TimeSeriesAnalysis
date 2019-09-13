@@ -1,6 +1,6 @@
 
 ---
-title: Births and Stock Prices
+title: Births and NY Bitcoin Index (^NYXBT)
 output:
   html_document: default
   html_notebook: default
@@ -34,6 +34,7 @@ library(glmnet) #for running regularized GLM
 library(lubridate)
 #library(glmnetUtils)
 #library(Quandl)
+library(scales)
 library(quantmod) #extract DJI data
 library(imputeTS) #for interpolation of time series
 #library(h2o)
@@ -47,13 +48,14 @@ Select global settings for this analysis.  These include choosing the dependent 
 
 
 ```{r set_globals, message=FALSE, warning=FALSE}
+
 ##########################
 ##Input Global Variables##
 ##########################
 
 ##########################
 #Input the column name of the dependent variable to predict.
-dependent.variable <- "DJI"
+dependent.variable <- "NYXBT"
 ##########################
 
 ##########################
@@ -69,11 +71,7 @@ time.increment.variable <- "Date"
 
 ##########################
 #Input the end date for the training set
-<<<<<<< HEAD
-train.end.date <- 2018-12-31
-=======
 train.end.date <- 2017-12-29
->>>>>>> c094b1dd15976378955208bb335a3f37365ce7cd
 ##########################
 
 ##########################
@@ -91,20 +89,24 @@ include.QQ.plots <- FALSE
 # Import stock data from Yahoo
 start = as.Date("1960-12-30")
 end = as.Date("2018-12-31")
-getSymbols("DJI", src="yahoo", start=start, end=end)
-DJI.xts <- as.xts(DJI)
-DJI.interp <- na.interpolation(DJI.xts)
-DJI.yearly <- to.yearly(DJI.interp)
-#DJI.quarterly <- to.quarterly(DJI.interp)
-DJI.close <- data.frame(DJI.yearly$DJI.interp.Close)
-DJI.dates <- rownames(DJI.close)
-DJI.close <- data.frame(DJI.dates, DJI.close)
-colnames(DJI.close) <- c(time.increment.variable, "DJI")
-nrows.DJI.close <- length(DJI.close[,1])
+getSymbols("^NYXBT", src="yahoo", start=start, end=end)
+dep.xts <- as.xts(NYXBT)
+dep.interp <- na.interpolation(dep.xts)
+dep.yearly <- to.yearly(dep.interp)
+dep.close <- data.frame(dep.yearly$dep.interp.Close)
+#dep.close <- data.frame(log10(dep.yearly$dep.interp.Close)) #log transform
+dep.dates <- rownames(dep.close)
+dep.close <- data.frame(dep.dates, dep.close)
+colnames(dep.close) <- c(time.increment.variable, dependent.variable)
+nrows.dep.close <- length(dep.close[,1])
 ##### predictor variable #####
+#?scale
+#?rescale
 
 # births
+#raw.birth.data <- read.csv("US_births_1005423.csv")
 raw.birth.data <- read.csv("US_births_1005423.csv")
+#raw.birth.data <- log10(raw.birth.data) #log transform
 nrows.births  <- length(raw.birth.data[,1])
 ncols <- length(raw.birth.data[1,])
 
@@ -116,7 +118,7 @@ ncols <- length(raw.birth.data[1,])
 
 #83-70
 
-nlags <- nrows.births - nrows.DJI.close
+nlags <- nrows.births - nrows.dep.close
 nrows.lagged.births <- nrows.births - nlags
 
 #function to add time lags to the predictor variables in a new matrix
@@ -139,7 +141,7 @@ births <- raw.birth.data$Births
 
 birth.data.lagged <- time_lag_matrix2(x=raw.birth.data, maxlag=nlags)
 str(birth.data.lagged)
-str(DJI.close)
+str(dep.close)
 write.csv(birth.data.lagged, "birth_data_lagged.csv")
 
 years.lagged <- birth.data.lagged[,1:length(birth.data.lagged[1,])/2]
@@ -151,7 +153,7 @@ births.lagged <- birth.data.lagged[,begin.birthdata:end.birthdata]
 
 write.csv(years.lagged, "years.lagged.csv")
 
-Y <- cbind(births.lagged, DJI.close$DJI)
+Y <- cbind(births.lagged, dep.close[,dependent.variable])
 #str(Y)
 #Y.rev <- apply(Y, 2, rev)
 
@@ -172,24 +174,14 @@ cvfitlm.coef.lambda.1se <- coef(cvfitlm, s = "lambda.1se")
 y.forecast <- forecast.data[,length(Y[1,])]
 x.forecast <- forecast.data[,1:(length(Y[1,])-1)]
 
-<<<<<<< HEAD
 
-=======
-#### build forecast set the maximizes the amount of data that can be used
-
-max.forecast.length <- max(cvfitlm.coef.lambda.1se@i)
-#raw.birth.data$Year[30]
-end.x.forecast <- nrows.births - max.forecast.length
-
-###to do next: create a loop to cycle through each lag...
-raw.birth.data$Births[max.forecast.length:end.x.forecast]
->>>>>>> c094b1dd15976378955208bb335a3f37365ce7cd
 
 ```
 
 #Forecast
 
 ```{r}
+
 end.year <- year(end)
 pop.ages <- end.year - nrows.lagged.births - year[cvfitlm.coef.lambda.1se@i]
 coef.table <- cbind(c("y-intercept", paste("Age: ", pop.ages, sep="")), round(cvfitlm.coef.lambda.1se@x, 5))
@@ -202,7 +194,6 @@ kable(coef.table)
 
 ```{r}
 
-<<<<<<< HEAD
 #### build forecast set the maximizes the amount of data that can be used
 
 max.forecast.length <- max(cvfitlm.coef.lambda.1se@i)
@@ -240,15 +231,8 @@ write.csv(frcst.x, "frcst_x.csv")
 
 predictions <- predict(cvfitlm, newx=x.train, type="response", s=cvfitlm$lambda.1se)
 predict.ahead <- predict(cvfitlm, newx=x.forecast, type="response", s=cvfitlm$lambda.1se)
-write.csv(predictions, "predictions.csv")
-write.csv(predict.ahead, "pred_ahead.csv")
 
 #str(x.forecast)
-=======
-predictions <- predict(cvfitlm, newx=x.train, type="response", s=cvfitlm$lambda.1se)
-predict.ahead <- predict(cvfitlm, newx=x.forecast, type="response", s=cvfitlm$lambda.1se)
-
->>>>>>> c094b1dd15976378955208bb335a3f37365ce7cd
 pdf("glmnet_forecast.pdf")
 plot(c(y.train, predict.ahead), type='p', main = "Forecast", ylab="Values", xlab="Time")
 lines(y.train, col = "black", lty = 1, lwd = 2)
@@ -256,7 +240,6 @@ lines(c(predictions,predict.ahead), col = "green", lty = 1, lwd = 2)
 legend("topleft", c("Forecast", "Actual"), col = c("green", "black"), text.col = "black", lty = c(1, 1, 1, 1, 2), lwd = c(2, 2, 2, 1, 2), merge = TRUE, bg = 'gray90', cex = .75)
 dev.off()
 
-<<<<<<< HEAD
 pdf("glmnet_forecast2.pdf")
 plot(c(y.train, frcst.x), type='p', main = "Forecast", ylab="Values", xlab="Time")
 lines(y.train, col = "black", lty = 1, lwd = 2)
@@ -264,19 +247,14 @@ lines(c(predictions, frcst.x), col = "green", lty = 1, lwd = 2)
 legend("topleft", c("Forecast", "Actual"), col = c("green", "black"), text.col = "black", lty = c(1, 1, 1, 1, 2), lwd = c(2, 2, 2, 1, 2), merge = TRUE, bg = 'gray90', cex = .75)
 dev.off()
 
-=======
->>>>>>> c094b1dd15976378955208bb335a3f37365ce7cd
 plot(c(y.train, predict.ahead), type='p', main = "Forecast", ylab="Values", xlab="Time")
 lines(y.train, col = "black", lty = 1, lwd = 2)
 lines(c(predictions,predict.ahead), col = "green", lty = 1, lwd = 2)
 legend("topleft", c("Forecast", "Actual"), col = c("green", "black"), text.col = "black", lty = c(1, 1, 1, 1, 2), lwd = c(2, 2, 2, 1, 2), merge = TRUE, bg = 'gray90', cex = .75)
 
-<<<<<<< HEAD
 plot(c(y.train, frcst.x), type='p', main = "Forecast", ylab="Values", xlab="Time")
 lines(y.train, col = "black", lty = 1, lwd = 2)
 lines(c(predictions, frcst.x), col = "green", lty = 1, lwd = 2)
 legend("topleft", c("Forecast", "Actual"), col = c("green", "black"), text.col = "black", lty = c(1, 1, 1, 1, 2), lwd = c(2, 2, 2, 1, 2), merge = TRUE, bg = 'gray90', cex = .75)
 
-=======
->>>>>>> c094b1dd15976378955208bb335a3f37365ce7cd
 ```
