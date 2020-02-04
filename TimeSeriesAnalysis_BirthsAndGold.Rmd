@@ -72,7 +72,7 @@ time.increment.variable <- "Date"
 
 ##########################
 #Input the end date for the training set
-train.end.date <- 2017-12-29
+train.end.date <- 2018-12-29
 ##########################
 
 ##########################
@@ -89,7 +89,7 @@ include.QQ.plots <- FALSE
 
 # Import stock data from Yahoo
 start = as.Date("1960-12-30")
-end = as.Date("2018-12-31")
+end = as.Date("2019-12-31")
 getSymbols("UGLD", src="yahoo", start=start, end=end)
 dep.xts <- as.xts(UGLD)
 dep.interp <- na.interpolation(dep.xts)
