@@ -22,6 +22,7 @@ output:
 #install.packages("glmnetUtils")
 #install.packages("addendum")
 #install.packages("testthat")
+#install.packages("imputeTS")
 #devtools::use_testthat
 
 rm(list=ls())
@@ -63,17 +64,18 @@ maxlag <- 70
 ##########################
 
 ##########################
+#Set the maximum forecast length 
+max.forecast.length <- 4
+##########################
+
+##########################
 #Input the column name that has the time increments in it, such as years, or year/months.
 time.increment.variable <- "Date"
 ##########################
 
 ##########################
 #Input the end date for the training set
-<<<<<<< HEAD
 train.end.date <- 2018-12-31
-=======
-train.end.date <- 2017-12-29
->>>>>>> c094b1dd15976378955208bb335a3f37365ce7cd
 ##########################
 
 ##########################
@@ -172,18 +174,14 @@ cvfitlm.coef.lambda.1se <- coef(cvfitlm, s = "lambda.1se")
 y.forecast <- forecast.data[,length(Y[1,])]
 x.forecast <- forecast.data[,1:(length(Y[1,])-1)]
 
-<<<<<<< HEAD
-
-=======
 #### build forecast set the maximizes the amount of data that can be used
 
-max.forecast.length <- max(cvfitlm.coef.lambda.1se@i)
+#max.forecast.length <- max(cvfitlm.coef.lambda.1se@i)
 #raw.birth.data$Year[30]
-end.x.forecast <- nrows.births - max.forecast.length
+#end.x.forecast <- nrows.births - max.forecast.length
 
 ###to do next: create a loop to cycle through each lag...
-raw.birth.data$Births[max.forecast.length:end.x.forecast]
->>>>>>> c094b1dd15976378955208bb335a3f37365ce7cd
+#raw.birth.data$Births[max.forecast.length:end.x.forecast]
 
 ```
 
@@ -202,12 +200,11 @@ kable(coef.table)
 
 ```{r}
 
-<<<<<<< HEAD
 #### build forecast set the maximizes the amount of data that can be used
 
-max.forecast.length <- max(cvfitlm.coef.lambda.1se@i)
+#max.forecast.length <- max(cvfitlm.coef.lambda.1se@i)
 #raw.birth.data$Year[30]
-end.x.forecast <- nrows.births - max.forecast.length
+#end.x.forecast <- nrows.births - max.forecast.length
 
 #pop.ages <- end.year - nrows.lagged.births - year[cvfitlm.coef.lambda.1se@i]
 
@@ -244,11 +241,10 @@ write.csv(predictions, "predictions.csv")
 write.csv(predict.ahead, "pred_ahead.csv")
 
 #str(x.forecast)
-=======
+
 predictions <- predict(cvfitlm, newx=x.train, type="response", s=cvfitlm$lambda.1se)
 predict.ahead <- predict(cvfitlm, newx=x.forecast, type="response", s=cvfitlm$lambda.1se)
 
->>>>>>> c094b1dd15976378955208bb335a3f37365ce7cd
 pdf("glmnet_forecast.pdf")
 plot(c(y.train, predict.ahead), type='p', main = "Forecast", ylab="Values", xlab="Time")
 lines(y.train, col = "black", lty = 1, lwd = 2)
@@ -256,7 +252,6 @@ lines(c(predictions,predict.ahead), col = "green", lty = 1, lwd = 2)
 legend("topleft", c("Forecast", "Actual"), col = c("green", "black"), text.col = "black", lty = c(1, 1, 1, 1, 2), lwd = c(2, 2, 2, 1, 2), merge = TRUE, bg = 'gray90', cex = .75)
 dev.off()
 
-<<<<<<< HEAD
 pdf("glmnet_forecast2.pdf")
 plot(c(y.train, frcst.x), type='p', main = "Forecast", ylab="Values", xlab="Time")
 lines(y.train, col = "black", lty = 1, lwd = 2)
@@ -264,19 +259,15 @@ lines(c(predictions, frcst.x), col = "green", lty = 1, lwd = 2)
 legend("topleft", c("Forecast", "Actual"), col = c("green", "black"), text.col = "black", lty = c(1, 1, 1, 1, 2), lwd = c(2, 2, 2, 1, 2), merge = TRUE, bg = 'gray90', cex = .75)
 dev.off()
 
-=======
->>>>>>> c094b1dd15976378955208bb335a3f37365ce7cd
 plot(c(y.train, predict.ahead), type='p', main = "Forecast", ylab="Values", xlab="Time")
 lines(y.train, col = "black", lty = 1, lwd = 2)
 lines(c(predictions,predict.ahead), col = "green", lty = 1, lwd = 2)
 legend("topleft", c("Forecast", "Actual"), col = c("green", "black"), text.col = "black", lty = c(1, 1, 1, 1, 2), lwd = c(2, 2, 2, 1, 2), merge = TRUE, bg = 'gray90', cex = .75)
 
-<<<<<<< HEAD
 plot(c(y.train, frcst.x), type='p', main = "Forecast", ylab="Values", xlab="Time")
 lines(y.train, col = "black", lty = 1, lwd = 2)
 lines(c(predictions, frcst.x), col = "green", lty = 1, lwd = 2)
 legend("topleft", c("Forecast", "Actual"), col = c("green", "black"), text.col = "black", lty = c(1, 1, 1, 1, 2), lwd = c(2, 2, 2, 1, 2), merge = TRUE, bg = 'gray90', cex = .75)
 
-=======
->>>>>>> c094b1dd15976378955208bb335a3f37365ce7cd
+
 ```
